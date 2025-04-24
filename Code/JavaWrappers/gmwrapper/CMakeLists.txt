@@ -118,6 +118,31 @@ SWIG_ADD_LIBRARY(GraphMolWrap TYPE MODULE LANGUAGE java SOURCES GraphMolJava.i )
 SWIG_LINK_LIBRARIES(GraphMolWrap ${RDKit_Wrapper_Libs}
       rdkit_base ${RDKit_THREAD_LIBS})
 
+# --- paths ---------------------------------------------------------
+set(GENERATED_JAVA     "${CMAKE_CURRENT_SOURCE_DIR}/src/org/RDKit/RDProps.java")
+set(DEBUG_JAVA         "${CMAKE_CURRENT_SOURCE_DIR}/RDProps_debug.java")
+set(RDPROPS_STAMP      "${CMAKE_CURRENT_BINARY_DIR}/rdprops_verified_and_replaced.stamp")
+
+# --- custom command -----------------------------------------------
+add_custom_command(
+  OUTPUT  ${RDPROPS_STAMP}
+
+  # Step 1: Overwrite RDProps.java with debug version
+  COMMAND ${CMAKE_COMMAND} -E echo "Replacing RDProps.java with debug version..."
+  COMMAND ${CMAKE_COMMAND} -E copy ${DEBUG_JAVA} ${GENERATED_JAVA}
+
+  # Step 2: Touch stamp file
+  COMMAND ${CMAKE_COMMAND} -E touch ${RDPROPS_STAMP}
+
+  DEPENDS ${DEBUG_JAVA} ${ORIGINAL_JAVA} ${GENERATED_JAVA}
+  COMMENT "Verifying SWIG output and replacing RDProps.java with debug version"
+  VERBATIM
+)
+
+# --- define custom target -----------------------------------------
+add_custom_target(check_and_replace_rdprops  ALL
+                  DEPENDS  GraphMolWrap ${RDPROPS_STAMP})
+
 # code adapted from the wrapper code for
 # GDCM: http://gdcm.svn.sf.net/viewvc/gdcm/trunk/Wrapping/Java/CMakeLists.txt?view=markup
 ADD_CUSTOM_COMMAND(
@@ -126,8 +151,6 @@ ADD_CUSTOM_COMMAND(
   COMMAND ${CMAKE_COMMAND} -E make_directory build
   COMMAND ${CMAKE_COMMAND} -E make_directory build-test
 
-  ## Add in our own Java sources
-  # COMMAND ${COPY_CMD}
   ## 1. run this custom command only after swig has been run.
   COMMAND ${JAVA_COMPILE} -d build "src/org/RDKit/*.java"
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
@@ -151,7 +174,7 @@ ADD_CUSTOM_COMMAND(
   COMMENT "jar cf org.RDKitDoc.jar -d doc"
 )
 ADD_CUSTOM_TARGET(GraphMolWrapJar ALL
-  DEPENDS GraphMolWrap ${CMAKE_CURRENT_SOURCE_DIR}/org.RDKit.jar
+  DEPENDS GraphMolWrap check_and_replace_rdprops ${CMAKE_CURRENT_SOURCE_DIR}/org.RDKit.jar
   COMMENT "building jar"
 )
 
